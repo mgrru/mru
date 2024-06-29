@@ -1,14 +1,17 @@
 mod banner;
+mod config;
 mod dao;
 mod model;
 mod utils;
+mod web;
 
-use axum::{routing::get, Router};
 use banner::banner;
 
+use config::{use_config, Server, SERVER_CONFIG};
 use dao::init_pool;
-use dotenv::dotenv;
+use tracing::info;
 use utils::my_log;
+use web::user_controller::get_routers;
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
@@ -19,25 +22,36 @@ async fn main() -> Result<(), sqlx::Error> {
     banner();
 
     // 加载环境变量
-    dotenv().ok();
+    match use_config().await {
+        Ok(_) => {}
+        Err(err) => return Err(sqlx::Error::Configuration(err.into())),
+    };
 
     init_pool().await?;
 
-    let app = Router::new().route("/", get(root));
-    // .route("/users", post(create_user));
+    let app = get_routers().await;
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:9901").await.unwrap();
+    let server_config = match SERVER_CONFIG.get() {
+        Some(server) => server,
+        None => &Server::new(),
+    };
 
+    let ip = match &server_config.ip {
+        Some(i) => i,
+        None => &String::from("localhost"),
+    };
+
+    let port = match &server_config.port {
+        Some(p) => p,
+        None => &9901,
+    };
+
+    let addr = format!("{}:{}", ip, port);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+
+    info!("server is running on {}", addr);
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
-}
-
-async fn root() -> &'static str {
-    let users = match dao::user_mapper::get_all_users().await {
-        Ok(us) => us,
-        Err(_) => return "404",
-    };
-    let res = serde_json::to_string(&users).unwrap();
-    Box::leak(res.into_boxed_str())
 }

@@ -18,8 +18,10 @@ mod tests {
 
     use super::*;
     use dotenv::dotenv;
+    use serial_test::serial;
 
     #[tokio::test]
+    #[serial]
     async fn test_get_all_users() {
         dotenv().ok();
         let r = init_pool().await;
