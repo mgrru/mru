@@ -1,0 +1,11 @@
+[mysql]
+host = "localhost"
+password = "123"
+# port = 3306
+username = "root"
+db_name = "mru"
+# url = "mysql://root:123@localhost/mru"
+
+[server]
+ip = "localhost"
+port = 9901
